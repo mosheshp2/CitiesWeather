@@ -21,12 +21,12 @@ function processCitiesForecasts(){
 
 function mapResponseToDateMaxMinForecast(cityName) {
     return (weatherResp) => ({
-        city: cityname,
+        city: cityName,
         forecasts: weatherResp.list.reduce((map, obj) => {
             map[obj.dt] = {
                 dateTime: new Date(obj.dt * 1000),
-                min: obj.temp.min,
-                max: obj.temp.max,
+                min: obj.temp && obj.temp.min,
+                max: obj.temp && obj.temp.max,
                 hasRain: !!obj.rain && obj.rain > 0
             };
             return map;
@@ -47,26 +47,25 @@ function calculateTopValues(cityForecasts) {
         const rain = [];
 
         cityForecasts.forEach(city => {
-            if(city.forecasts[dt].max > currMax.max){
+            if(city.forecasts[dt] && city.forecasts[dt].max > currMax.max){
                 currMax.max = city.forecasts[dt].max;
                 currMax.city = city;
-            };
+            }
             
-            if(city.forecasts[dt].min < currMin.min){
+            if(city.forecasts[dt] && city.forecasts[dt].min < currMin.min){
                 currMin.min = city.forecasts[dt].min;
                 currMax.city = city;
+            }
 
-            };
-
-            if(city.forecasts[dt].hasRain){
+            if(city.forecasts[dt] && city.forecasts[dt].hasRain){
                 rain.push(city.cityName)
             }
         });
 
         return {
             dt: dt,
-            max: currMax.city.cityName,
-            min: currMin.city.cityName,
+            max: currMax.city && currMax.city.cityName,
+            min: currMin.city && currMax.city.cityName,
             hasRain: rain
         }
     });
@@ -74,9 +73,11 @@ function calculateTopValues(cityForecasts) {
 }
 
 function writeCsvfile(fileName){
-    return processedData => new Promise(resolve, reject => {
+    return function(processedData){ 
+        return new Promise((resolve, reject) => {
             const outputStream = fs.createWriteStream(fileName, { encoding: 'utf8' });
 
+      
             outputStream.once('open', function(fd) {
 
                 outputStream.write(mapDataToCSVheaders(processedData[0]));
@@ -89,14 +90,15 @@ function writeCsvfile(fileName){
 
                 resolve('done successfully');
             });
-    });
+        });
+    };
 };
 
 mapDataToCSVheaders = (dataLine => {
-    return 'DAY, highest Temp, lowest temp, raining on:';
+    return 'DAY, highest Temp, lowest temp, raining on:\\n';
 });
 mapDataToCSVline = (dataLine => {
-    return `${Date(dataLine.dt + 1000)},${dataLine.max},${dataLine.min},${dataLine.hasRain}`;
+    return `${Date(dataLine.dt + 1000)},${dataLine.max},${dataLine.min},${dataLine.hasRain}\\n`;
 });
 
 function getForecastForCity(cityname) {

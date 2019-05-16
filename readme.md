@@ -10,6 +10,8 @@ node app [filename.csv (default will be 'result.csv')]
 
 ## TODO:
 
+*MAKE THE CODE WORK :-( *
+
 add automated tests
 
 ## License
