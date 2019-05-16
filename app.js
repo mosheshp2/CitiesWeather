@@ -14,17 +14,30 @@ function processCitiesForecasts(){
     const promises = createPromises(cities);
     
     const processedData = Promise.all(promises)
-                                 .then(calculateTopValues);
-    
-    writeCsvfile(processedData, fileName);
+                                 .then(calculateTopValues)
+                                 .then(writeCsvfile(fileName))
+                                 
+}
 
-    console.log(`finished, filename: ${fileName}`);
+function mapResponseToDateMaxMinForecast(cityName) {
+    return (weatherResp) => ({
+        city: cityname,
+        forecasts: weatherResp.list.reduce((map, obj) => {
+            map[obj.dt] = {
+                dateTime: new Date(obj.dt * 1000),
+                min: obj.temp.min,
+                max: obj.temp.max,
+                hasRain: !!obj.rain && obj.rain > 0
+            };
+            return map;
+        }, {})
+    });
 }
 
 function createPromises(cities){
-    return cities.map(city => getForecastForCity(city).then(mapResponseToDateMaxMinForecast));
+    return cities.map(city => getForecastForCity(city).then(mapResponseToDateMaxMinForecast(city)));
 }
- 
+
 function calculateTopValues(cityForecasts) {
     var dates = Object.keys(cityForecasts[0].forecasts);
 
@@ -60,19 +73,22 @@ function calculateTopValues(cityForecasts) {
 
 }
 
-function writeCsvfile(processedData, fileName) {
+function writeCsvfile(fileName){
+    return processedData => new Promise(resolve, reject => {
+            const outputStream = fs.createWriteStream(fileName, { encoding: 'utf8' });
 
-    const outputStream = fs.createWriteStream(fileName, { encoding: 'utf8' });
+            outputStream.once('open', function(fd) {
 
-    outputStream.once('open', function(fd) {
+                outputStream.write(mapDataToCSVheaders(processedData[0]));
 
-        outputStream.write(mapDataToCSVheaders(processedData[0]));
+                processedData.forEach(dayForecast => {
+                    outputStream.write(mapDataToCSVline(dayForecast));
+                });
+            
+                outputStream.end();
 
-        processedData.forEach(dayForecast => {
-            outputStream.write(mapDataToCSVline(dayForecast));
-        });
-       
-        outputStream.end();
+                resolve('done successfully');
+            });
     });
 };
 
@@ -95,15 +111,3 @@ function getForecastForCity(cityname) {
     });
 }
 
-const mapResponseToDateMaxMinForecast = (cityName) => (weatherResp) => ({
-    city: cityname,
-    forecasts = weatherResp.list.reduce((map, obj) => {
-        map[obj.dt] = {
-            dateTime: new Date(obj.dt * 1000),
-            min: obj.temp.min,
-            max: obj.temp.max,
-            hasRain: !!obj.rain && obj.rain > 0
-        };
-        return map;
-    })
-});
